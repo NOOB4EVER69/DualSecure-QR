@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DualSecure QR</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/crypto-js/crypto-js.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #0d1117; /* GitHub dark background */
+            color: #c9d1d9; /* GitHub text color */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #f0f6fc;
+            font-size: 2rem;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #58a6ff, 0 0 20px #58a6ff;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 900px;
+            margin: 20px 0;
+            background: #161b22;
+            border: 1px solid #21262d;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(40, 44, 52, 0.8);
+            padding: 20px;
+            position: relative;
+        }
+
+        h2 {
+            border-bottom: 2px solid #30363d;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            color: #f0f6fc;
+        }
+
+        input, button, canvas, p {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        input, button {
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #30363d;
+            border-radius: 5px;
+            background: #161b22;
+            color: #c9d1d9;
+            outline: none;
+            transition: all 0.2s ease-in-out;
+        }
+
+        input:focus, button:hover {
+            border-color: #58a6ff;
+            box-shadow: 0 0 10px #58a6ff, 0 0 20px #58a6ff;
+        }
+
+        button {
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        button:active {
+            background: #21262d;
+        }
+
+        button.glow {
+            color: #fff;
+            background: linear-gradient(90deg, #58a6ff, #a8d2ff);
+            border: none;
+            animation: glow 1.5s infinite alternate;
+        }
+
+        button.glow:hover {
+            animation: none;
+        }
+
+        @keyframes glow {
+            from {
+                box-shadow: 0 0 10px #58a6ff, 0 0 20px #58a6ff;
+            }
+            to {
+                box-shadow: 0 0 20px #a8d2ff, 0 0 40px #a8d2ff;
+            }
+        }
+
+        .nav-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>DualSecure QR</h1>
+
+    <div class="container">
+        <div class="nav-buttons">
+            <button class="glow" onclick="showPage('encoder')">Encoder</button>
+            <button class="glow" onclick="showPage('decoder')">Decoder</button>
+        </div>
+
+        <!-- Encoder Page -->
+        <div id="encoder" class="page">
+            <h2>Encoder</h2>
+            <input type="text" id="input1" placeholder="Enter first text">
+            <input type="password" id="password1" placeholder="Enter first password">
+            <input type="text" id="input2" placeholder="Enter second text">
+            <input type="password" id="password2" placeholder="Enter second password">
+            <button onclick="encode()">Generate QR Code</button>
+            <canvas id="qrcode"></canvas>
+            <button id="downloadBtn" onclick="downloadQRCode()" style="display:none;">Download QR Code</button>
+        </div>
+
+        <!-- Decoder Page -->
+        <div id="decoder" class="page hidden">
+            <h2>Decoder</h2>
+            <input type="file" id="qrInput" accept="image/*">
+            <input type="password" id="decodePassword" placeholder="Enter password to decode">
+            <button onclick="decode()">Decode QR Code</button>
+            <p id="decodedOutput"></p>
+        </div>
+    </div>
+
+    <script>
+        function encode() {
+            const input1 = document.getElementById("input1").value;
+            const password1 = document.getElementById("password1").value;
+            const input2 = document.getElementById("input2").value;
+            const password2 = document.getElementById("password2").value;
+
+            if (!input1 || !password1 || !input2 || !password2) {
+                alert("Please fill all fields.");
+                return;
+            }
+
+            const encrypted1 = CryptoJS.AES.encrypt(input1, password1).toString();
+            const encrypted2 = CryptoJS.AES.encrypt(input2, password2).toString();
+
+            const payload = JSON.stringify({ encrypted1, encrypted2 });
+
+            const canvas = document.getElementById("qrcode");
+            QRCode.toCanvas(canvas, payload, function (error) {
+                if (error) console.error(error);
+                else {
+                    console.log("QR Code generated successfully!");
+                    document.getElementById("downloadBtn").style.display = "block";
+                }
+            });
+        }
+
+        function downloadQRCode() {
+            const canvas = document.getElementById("qrcode");
+            const link = document.createElement("a");
+            link.download = "qrcode.png";
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+
+        function decode() {
+            const fileInput = document.getElementById("qrInput").files[0];
+            const decodePassword = document.getElementById("decodePassword").value;
+
+            if (!fileInput || !decodePassword) {
+                alert("Please upload a QR code image and enter a password.");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function () {
+                const imgData = reader.result;
+
+                const img = new Image();
+                img.onload = function () {
+                    const canvas = document.createElement("canvas");
+                    const context = canvas.getContext("2d");
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    context.drawImage(img, 0, 0);
+
+                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    const qrCodeData = jsQR(imageData.data, canvas.width, canvas.height);
+
+                    if (!qrCodeData) {
+                        alert("Failed to decode QR Code.");
+                        return;
+                    }
+
+                    try {
+                        const { encrypted1, encrypted2 } = JSON.parse(qrCodeData.data);
+
+                        const decrypted1 = CryptoJS.AES.decrypt(encrypted1, decodePassword).toString(CryptoJS.enc.Utf8);
+                        const decrypted2 = CryptoJS.AES.decrypt(encrypted2, decodePassword).toString(CryptoJS.enc.Utf8);
+
+                        if (decrypted1) {
+                            document.getElementById("decodedOutput").textContent = "Decoded Text: " + decrypted1;
+                        } else if (decrypted2) {
+                            document.getElementById("decodedOutput").textContent = "Decoded Text: " + decrypted2;
+                        } else {
+                            alert("Password is incorrect!");
+                        }
+                    } catch (error) {
+                        alert("Error decoding the QR Code.");
+                    }
+                };
+
+                img.src = imgData;
+            };
+
+            reader.readAsDataURL(fileInput);
+        }
+
+        function showPage(pageId) {
+            document.querySelectorAll(".page").forEach(page => page.classList.add("hidden"));
+            document.getElementById(pageId).classList.remove("hidden");
+        }
+    </script>
+</body>
+</html>
